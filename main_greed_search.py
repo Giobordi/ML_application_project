@@ -46,16 +46,13 @@ def main():
                 EPOCHS = epochs
                 normal_data_windowed = sliding_window(df_kuka_normal, window_size, window_step_size)
                 test_data_slow = sliding_window(df_kuka_slow, window_size, window_step_size)
-    
-                normal_data_windowed = sliding_window(df_kuka_normal, window_size, window_step_size)
-                test_data_slow = sliding_window(df_kuka_slow, window_size, window_step_size)
 
                 train_data, test_data_normal = train_test_split(normal_data_windowed, test_size=0.3)
 
                 test_data = np.concatenate([test_data_slow, test_data_normal])
                 test_data_labels = np.concatenate([
-                    np.zeros(test_data_slow.shape[0]),
-                    np.ones(test_data_normal.shape[0]),
+                    np.ones(test_data_slow.shape[0]), # Anomalies
+                    np.zeros(test_data_normal.shape[0]), # Normal
                 ])
 
                 print(f"Training data shape: {train_data.shape}")
@@ -91,6 +88,8 @@ def main():
 
                 preds = predict(autoencoder, test_data_shuffled, threshold)
                 print_stats(preds, test_data_labels_shuffled)
+                
+                plot_confusion_matrix(preds, test_data_labels_shuffled)
 
                 # Adversarial AutoEncoder
                 ARCHITECTURE = "aae"
@@ -184,18 +183,13 @@ def plot_reconstruction_error(train_data, reconstructions):
     plt.fill_between(np.arange(86), reconstructions[window_number, :, sample_inside_window],
                      train_data[window_number, :, sample_inside_window], color='lightcoral')
     plt.legend(labels=["Input", "Reconstruction", "Error"])
-    #plt.show()
     if os.path.exists(f"{ARCHITECTURE}/plot_reconstr") == False:
         os.makedirs(f"{ARCHITECTURE}/plot_reconstr")
     
     plt.savefig(f"{ARCHITECTURE}/plot_reconstr/ws{WINDOW_SIZE}_lr{LR}_ep{EPOCHS}.png")
-
-
-def plot_loss(mean_mse):
-    plt.hist(mean_mse[:, None], bins=20)
-    plt.xlabel("Loss")
-    plt.ylabel("No of examples")
     #plt.show()
+    plt.close()
+
 
 
 def plot_train_and_test_losses(mean_mse_train, mean_mse_test, threshold, x_min, x_max):
@@ -204,11 +198,12 @@ def plot_train_and_test_losses(mean_mse_train, mean_mse_test, threshold, x_min, 
     plt.axvline(x=threshold, color="green", linestyle="--")
     plt.xlabel("Loss")
     plt.ylabel("No of examples")
-    #plt.show()
-    
+   
     if os.path.exists(f"{ARCHITECTURE}/plot_loss") == False:
         os.makedirs(f"{ARCHITECTURE}/plot_loss")
     plt.savefig(f"{ARCHITECTURE}/plot_loss/ws{WINDOW_SIZE}_lr{LR}_ep{EPOCHS}.png")
+    #plt.show()
+    plt.close()
 
 
 def load_dataset():
@@ -263,7 +258,7 @@ def predict(model, data, threshold):
     reconstructions = model(data)
     loss = tf.keras.losses.mse(reconstructions, data)
     mean_mse_test = np.mean(loss, axis=1)
-    return tf.math.less(mean_mse_test, threshold)
+    return tf.math.greater(mean_mse_test, threshold)
 
 
 def print_stats(predictions, labels):
@@ -278,15 +273,28 @@ def print_stats(predictions, labels):
     
     if os.path.exists(f"{ARCHITECTURE}/results") == False:
         os.makedirs(f"{ARCHITECTURE}/results")
+    ## if the documents exists append the results else create a new one
+    if os.path.exists(f"{ARCHITECTURE}/results/logging_file.txt"):
+        with open(f"{ARCHITECTURE}/results/logging_file.txt", "a") as f:
+            f.write(f"Accuracy = {accuracy}\n Precision = {prediction}\n Recall = {recall}\n F1 = {f1_sc}\n")
+    else:
+        with open(f"{ARCHITECTURE}/results/logging_file.txt", "w") as f:
+            f.write(f"Accuracy = {accuracy}\n Precision = {prediction}\n Recall = {recall}\n F1 = {f1_sc}\n")
+    
         
     
-    pd.to_pickle({
-        "accuracy": accuracy,
-        "precision": prediction,
-        "recall": recall,
-        "f1_score": f1_sc,
-        }, f"{ARCHITECTURE}/results/ws{WINDOW_SIZE}_lr{LR}_ep{EPOCHS}.pkl")
+def plot_confusion_matrix(predictions, labels):
+    # False Positive: Normal data classified as anomaly
+    # False Negative: Anomaly data classified as normal
+    cm = confusion_matrix(labels, predictions.numpy(), labels=[0, 1])
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=[0, 1])
+    disp.plot()
     
+    if os.path.exists(f"{ARCHITECTURE}/conf_matrix") == False:
+        os.makedirs(f"{ARCHITECTURE}/conf_matrix")
+    plt.savefig(f"{ARCHITECTURE}/conf_matrix/ws{WINDOW_SIZE}_lr{LR}_ep{EPOCHS}.png")
+    #plt.show()
+    plt.close()
     
     
 
