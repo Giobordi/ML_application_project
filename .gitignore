@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+# Tensorflow 
+None*
+ae*
+aae*
+KukaVelocityDataset*
 # Distribution / packaging
 .Python
 build/
