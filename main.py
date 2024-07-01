@@ -6,7 +6,7 @@ import tensorflow as tf
 from debugpy.common.log import log_dir
 from keras.src.callbacks import History
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, \
-    ConfusionMatrixDisplay
+    ConfusionMatrixDisplay, roc_curve, roc_auc_score
 from sklearn.model_selection import train_test_split
 from dotenv import load_dotenv
 
@@ -75,6 +75,7 @@ def main():
     print_stats(preds, test_data_labels_shuffled)
     
     plot_confusion_matrix(preds, test_data_labels_shuffled)
+    plot_roc_curve(preds, test_data_labels_shuffled)
 
     # Adversarial AutoEncoder
     aae, train_history_aae = init_and_train_aae(train_data, validation, window_size, lr, steps_per_epoch, epochs)
@@ -98,6 +99,9 @@ def main():
 
     aae_preds = predict(aae, test_data_shuffled, aae_threshold)
     print_stats(aae_preds, test_data_labels_shuffled)
+    
+    plot_confusion_matrix(aae_preds, test_data_labels_shuffled)
+    plot_roc_curve(aae_preds, test_data_labels_shuffled)
 
 
 def init_and_train_autoencoder(train_data, validation, window_size, lr, steps_per_epoch, epochs) -> (AutoEncoder, History):
@@ -255,6 +259,27 @@ def plot_confusion_matrix(predictions, labels):
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=[0, 1])
     disp.plot()
     plt.show()
+
+
+def plot_roc_curve(predictions, labels):
+    fpr, tpr, thresholds = roc_curve(labels, predictions.numpy())
+    # Calculate AUC
+    auc = roc_auc_score(labels, predictions.numpy())
+
+    # Plot the ROC curve
+    plt.figure()
+    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {auc:.2f})')
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver Operating Characteristic (ROC) Curve')
+    plt.legend(loc="lower right")
+    plt.show()
+    plt.close()
+
+
 
 if __name__ == '__main__':
     main()
