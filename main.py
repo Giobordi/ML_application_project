@@ -4,7 +4,9 @@ import pandas as pd
 import os
 import tensorflow as tf
 from debugpy.common.log import log_dir
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from keras.src.callbacks import History
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, \
+    ConfusionMatrixDisplay
 from sklearn.model_selection import train_test_split
 from dotenv import load_dotenv
 
@@ -25,51 +27,75 @@ def main():
 
     # Load dataset
     df_kuka_normal, df_kuka_slow = load_dataset()
-    train_data = sliding_window(df_kuka_normal, window_size, window_step_size)
+    normal_data_windowed = sliding_window(df_kuka_normal, window_size, window_step_size)
+    test_data_slow = sliding_window(df_kuka_slow, window_size, window_step_size)
+
+    train_data, test_data_normal = train_test_split(normal_data_windowed, test_size=0.3)
+
+    test_data = np.concatenate([test_data_slow, test_data_normal])
+    test_data_labels = np.concatenate([
+        np.zeros(test_data_slow.shape[0]),
+        np.ones(test_data_normal.shape[0]),
+    ])
+
+    print(f"Training data shape: {train_data.shape}")
+    print(f"Test data shape: {test_data.shape}, "
+          f"formed by: {test_data_slow.shape} anomalies and {test_data_normal.shape} normal")
+
+    shuffled_indices = np.random.permutation(len(test_data))
+    test_data_shuffled = test_data[shuffled_indices]
+    test_data_labels_shuffled = test_data_labels[shuffled_indices]
 
     # AutoEncoder
-    autoencoder, train_history_ae = init_and_train_autoencoder(train_data, validation, window_size, lr, steps_per_epoch, epochs)
-    print(train_history_ae)
+    autoencoder, train_history_ae = init_and_train_autoencoder(train_data, validation, window_size, lr, steps_per_epoch,
+                                                               epochs)
+    print(train_history_ae.history)
 
     normal_reconstructions = autoencoder.predict(train_data)
     plot_reconstruction_error(train_data, normal_reconstructions)
 
     normal_train_loss = tf.keras.losses.mse(normal_reconstructions, train_data)
-    mean_mse = np.mean(normal_train_loss, axis=1)
-    plot_loss(mean_mse)
+    mean_mse_normal = np.mean(normal_train_loss, axis=1)
+    # plot_loss(mean_mse)
 
-    threshold = np.mean(mean_mse) + np.std(mean_mse)
+    threshold = np.mean(mean_mse_normal) + np.std(mean_mse_normal)
     print("Threshold: ", threshold)
 
-    test_data = sliding_window(df_kuka_slow, window_size, window_step_size)
-    reconstructions = autoencoder.predict(test_data)
+    reconstructions_slow = autoencoder.predict(test_data_slow)
+    test_loss_slow = tf.keras.losses.mse(reconstructions_slow, test_data_slow)
+    mean_mse_test_slow = np.mean(test_loss_slow, axis=1)
+    # plot_loss(mean_mse_test)
 
-    test_loss = tf.keras.losses.mse(reconstructions, test_data)
-    mean_mse_test = np.mean(test_loss, axis=1)
-    plot_loss(mean_mse_test)
+    plot_train_and_test_losses(mean_mse_normal, mean_mse_test_slow, threshold, x_min=3e-4, x_max=1e-3)
 
-    preds = predict(autoencoder, test_data, threshold)
-    print_stats(np.bitwise_not(preds), np.ones_like(preds))
+    preds = predict(autoencoder, test_data_shuffled, threshold)
+    print_stats(preds, test_data_labels_shuffled)
 
     # Adversarial AutoEncoder
     aae, train_history_aae = init_and_train_aae(train_data, validation, window_size, lr, steps_per_epoch, epochs)
-    print(train_history_aae)
+    print(train_history_aae.history)
 
-    aae_normal_reconstructions = aae.autoencoder.predict(train_data)
+    aae_normal_reconstructions = aae.predict(train_data)
     plot_reconstruction_error(train_data, aae_normal_reconstructions)
 
     aae_normal_train_loss = tf.keras.losses.mse(aae_normal_reconstructions, train_data)
     aae_mean_mse = np.mean(aae_normal_train_loss, axis=1)
-    plot_loss(aae_mean_mse)
+    # plot_loss(aae_mean_mse)
 
     aae_threshold = np.mean(aae_mean_mse) + np.std(aae_mean_mse)
+    aae_test_reconstructions_slow = aae.predict(test_data_slow)
 
-    aae_preds = predict(aae.autoencoder, test_data, aae_threshold)
-    print_stats(np.bitwise_not(aae_preds), np.ones_like(preds).astype(bool))
+    aae_test_loss_slow = tf.keras.losses.mse(aae_test_reconstructions_slow, test_data_slow)
+    aae_mean_mse_test_slow = np.mean(aae_test_loss_slow, axis=1)
+    # plot_loss(aae_mean_mse_test)
+
+    plot_train_and_test_losses(aae_mean_mse, aae_mean_mse_test_slow, aae_threshold, x_min=3e-4, x_max=65e-4)
+
+    aae_preds = predict(aae, test_data_shuffled, aae_threshold)
+    print_stats(aae_preds, test_data_labels_shuffled)
 
 
-
-def init_and_train_autoencoder(train_data, validation, window_size, lr, steps_per_epoch, epochs) -> (AutoEncoder, any):
+def init_and_train_autoencoder(train_data, validation, window_size, lr, steps_per_epoch, epochs) -> (AutoEncoder, History):
     autoencoder: AutoEncoder = AutoEncoder(window_size)
     autoencoder.build(train_data.shape)
 
@@ -84,22 +110,23 @@ def init_and_train_autoencoder(train_data, validation, window_size, lr, steps_pe
         train_normal, val_normal = train_test_split(train_data, test_size=0.2)
 
         train_dataset = tf.data.Dataset.from_tensor_slices((train_normal, train_normal)).repeat().batch(256)
-        validation_dataset = tf.data.Dataset.from_tensor_slices((val_normal, val_normal)).repeat().batch(256)
+        validation_dataset = tf.data.Dataset.from_tensor_slices((val_normal, val_normal)).batch(256)
 
         training_history = autoencoder.fit(train_dataset, steps_per_epoch=steps_per_epoch, epochs=epochs,
-                        callbacks=[callback, tensorboard_callback],
-                        validation_data=validation_dataset)
+                                           callbacks=[callback, tensorboard_callback],
+                                           validation_data=validation_dataset)
     else:
         train_dataset = tf.data.Dataset.from_tensor_slices((train_data, train_data)).repeat().batch(256)
         training_history = autoencoder.fit(train_dataset, steps_per_epoch=steps_per_epoch, epochs=epochs,
-                        callbacks=[callback, tensorboard_callback])
+                                           callbacks=[callback, tensorboard_callback])
 
     autoencoder.summary()
 
     return autoencoder, training_history
 
 
-def init_and_train_aae(train_data, validation, window_size, lr, steps_per_epoch, epochs) -> (AdversarialAutoEncoder, any):
+def init_and_train_aae(train_data, validation, window_size, lr, steps_per_epoch, epochs) \
+        -> (AdversarialAutoEncoder, History):
     aae: AdversarialAutoEncoder = AdversarialAutoEncoder(window_size)
     aae.build(train_data.shape)
 
@@ -112,11 +139,13 @@ def init_and_train_aae(train_data, validation, window_size, lr, steps_per_epoch,
         train_normal, val_normal = train_test_split(train_data, test_size=0.2)
 
         train_dataset = tf.data.Dataset.from_tensor_slices((train_normal, train_normal)).repeat().batch(256)
-        validation_dataset = tf.data.Dataset.from_tensor_slices((val_normal, val_normal)).repeat().batch(256)
-        training_history = aae.fit(train_dataset, steps_per_epoch=steps_per_epoch, epochs=epochs, callbacks=[tensorboard_callback], validation_data=validation_dataset)
+        validation_dataset = tf.data.Dataset.from_tensor_slices((val_normal, val_normal)).batch(256)
+        training_history = aae.fit(train_dataset, steps_per_epoch=steps_per_epoch, epochs=epochs,
+                                   callbacks=[tensorboard_callback], validation_data=validation_dataset)
     else:
         train_dataset = tf.data.Dataset.from_tensor_slices((train_data, train_data)).repeat().batch(256)
-        training_history = aae.fit(train_dataset, steps_per_epoch=steps_per_epoch, epochs=epochs, callbacks=[tensorboard_callback])
+        training_history = aae.fit(train_dataset, steps_per_epoch=steps_per_epoch, epochs=epochs,
+                                   callbacks=[tensorboard_callback])
 
     aae.summary()
 
@@ -138,6 +167,15 @@ def plot_reconstruction_error(train_data, reconstructions):
 
 def plot_loss(mean_mse):
     plt.hist(mean_mse[:, None], bins=20)
+    plt.xlabel("Loss")
+    plt.ylabel("No of examples")
+    plt.show()
+
+
+def plot_train_and_test_losses(mean_mse_train, mean_mse_test, threshold, x_min, x_max):
+    plt.hist(mean_mse_train[:, None], bins=40, color="b") # , range=(x_min, x_max))
+    plt.hist(mean_mse_test[:, None], bins=40, color="r")
+    plt.axvline(x=threshold, color="green", linestyle="--")
     plt.xlabel("Loss")
     plt.ylabel("No of examples")
     plt.show()

@@ -88,6 +88,9 @@ class AdversarialAutoEncoder(tf.keras.Model):
         self.d_optimizer = d_optimizer
         self.ae_optimizer = ae_optimizer
 
+    def call(self, data):
+        return self.autoencoder.call(data)
+
     def train_step(self, data):
         real_data, _ = data
 
