@@ -16,6 +16,9 @@ from models.AutoEncoder import AutoEncoder
 load_dotenv(".env")
 
 
+## Anomaly with label 1 
+## Normal with label 0
+
 def main():
     # Load config
     window_size = int(os.getenv("WINDOW_SIZE"))
@@ -34,8 +37,8 @@ def main():
 
     test_data = np.concatenate([test_data_slow, test_data_normal])
     test_data_labels = np.concatenate([
-        np.zeros(test_data_slow.shape[0]),
-        np.ones(test_data_normal.shape[0]),
+        np.ones(test_data_slow.shape[0]), # Anomalies
+        np.zeros(test_data_normal.shape[0]), # Normal
     ])
 
     print(f"Training data shape: {train_data.shape}")
@@ -70,6 +73,8 @@ def main():
 
     preds = predict(autoencoder, test_data_shuffled, threshold)
     print_stats(preds, test_data_labels_shuffled)
+    
+    plot_confusion_matrix(preds, test_data_labels_shuffled)
 
     # Adversarial AutoEncoder
     aae, train_history_aae = init_and_train_aae(train_data, validation, window_size, lr, steps_per_epoch, epochs)
@@ -233,7 +238,7 @@ def predict(model, data, threshold):
     reconstructions = model(data)
     loss = tf.keras.losses.mse(reconstructions, data)
     mean_mse_test = np.mean(loss, axis=1)
-    return tf.math.less(mean_mse_test, threshold)
+    return tf.math.greater(mean_mse_test, threshold)
 
 
 def print_stats(predictions, labels):
@@ -242,6 +247,14 @@ def print_stats(predictions, labels):
     print("Recall = {}".format(recall_score(labels, predictions)))
     print("F1 = {}".format(f1_score(labels, predictions)))
 
+
+def plot_confusion_matrix(predictions, labels):
+    # False Positive: Normal data classified as anomaly
+    # False Negative: Anomaly data classified as normal
+    cm = confusion_matrix(labels, predictions.numpy(), labels=[0, 1])
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=[0, 1])
+    disp.plot()
+    plt.show()
 
 if __name__ == '__main__':
     main()
