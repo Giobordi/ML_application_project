@@ -276,10 +276,10 @@ def print_stats(predictions, labels):
     ## if the documents exists append the results else create a new one
     if os.path.exists(f"{ARCHITECTURE}/results/logging_file.txt"):
         with open(f"{ARCHITECTURE}/results/logging_file.txt", "a") as f:
-            f.write(f"Accuracy = {accuracy}\n Precision = {prediction}\n Recall = {recall}\n F1 = {f1_sc}\n")
+            f.write(f"Windows_size = {WINDOW_SIZE}  LR = {LR}  Epochs = {EPOCHS} \n Accuracy = {accuracy}\n Precision = {prediction}\n Recall = {recall}\n F1 = {f1_sc}\n")
     else:
         with open(f"{ARCHITECTURE}/results/logging_file.txt", "w") as f:
-            f.write(f"Accuracy = {accuracy}\n Precision = {prediction}\n Recall = {recall}\n F1 = {f1_sc}\n")
+            f.write(f"Windows_size = {WINDOW_SIZE}  LR = {LR}  Epochs = {EPOCHS} \n Accuracy = {accuracy}\n Precision = {prediction}\n Recall = {recall}\n F1 = {f1_sc}\n\n\n")
     
         
     
