@@ -48,6 +48,7 @@ def main():
     shuffled_indices = np.random.permutation(len(test_data))
     test_data_shuffled = test_data[shuffled_indices]
     test_data_labels_shuffled = test_data_labels[shuffled_indices]
+    test_data_slow_tensor = tf.convert_to_tensor(test_data_slow)
 
     # AutoEncoder
     autoencoder, train_history_ae = init_and_train_autoencoder(train_data, validation, window_size, lr, steps_per_epoch,
@@ -57,16 +58,16 @@ def main():
     normal_reconstructions = autoencoder.predict(train_data)
     plot_reconstruction_error(train_data, normal_reconstructions)
 
-    normal_train_loss = tf.keras.losses.mse(normal_reconstructions, train_data)
-    mean_mse_normal = np.mean(normal_train_loss, axis=1)
+    normal_train_loss = tf.keras.losses.MeanSquaredError().call(train_data, normal_reconstructions)
+    mean_mse_normal = np.mean(normal_train_loss.numpy(), axis=1)
     # plot_loss(mean_mse)
 
     threshold = np.mean(mean_mse_normal) + np.std(mean_mse_normal)
     print("Threshold: ", threshold)
 
-    reconstructions_slow = autoencoder.predict(test_data_slow)
-    test_loss_slow = tf.keras.losses.mse(reconstructions_slow, test_data_slow)
-    mean_mse_test_slow = np.mean(test_loss_slow, axis=1)
+    reconstructions_slow = autoencoder.predict(test_data_slow_tensor)
+    test_loss_slow = tf.keras.losses.MeanSquaredError().call(test_data_slow_tensor, reconstructions_slow)
+    mean_mse_test_slow = np.mean(test_loss_slow.numpy(), axis=1)
     # plot_loss(mean_mse_test)
 
     plot_train_and_test_losses(mean_mse_normal, mean_mse_test_slow, threshold, x_min=3e-4, x_max=1e-3)
@@ -84,15 +85,15 @@ def main():
     aae_normal_reconstructions = aae.predict(train_data)
     plot_reconstruction_error(train_data, aae_normal_reconstructions)
 
-    aae_normal_train_loss = tf.keras.losses.mse(aae_normal_reconstructions, train_data)
-    aae_mean_mse = np.mean(aae_normal_train_loss, axis=1)
+    aae_normal_train_loss = tf.keras.losses.MeanSquaredError().call(train_data, aae_normal_reconstructions)
+    aae_mean_mse = np.mean(aae_normal_train_loss.numpy(), axis=1)
     # plot_loss(aae_mean_mse)
 
     aae_threshold = np.mean(aae_mean_mse) + np.std(aae_mean_mse)
-    aae_test_reconstructions_slow = aae.predict(test_data_slow)
+    aae_test_reconstructions_slow = aae.predict(test_data_slow_tensor)
 
-    aae_test_loss_slow = tf.keras.losses.mse(aae_test_reconstructions_slow, test_data_slow)
-    aae_mean_mse_test_slow = np.mean(aae_test_loss_slow, axis=1)
+    aae_test_loss_slow = tf.keras.losses.MeanSquaredError().call(test_data_slow_tensor, aae_test_reconstructions_slow)
+    aae_mean_mse_test_slow = np.mean(aae_test_loss_slow.numpy(), axis=1)
     # plot_loss(aae_mean_mse_test)
 
     plot_train_and_test_losses(aae_mean_mse, aae_mean_mse_test_slow, aae_threshold, x_min=3e-4, x_max=65e-4)
@@ -240,8 +241,8 @@ def sliding_window(data, window_size, step_size):
 
 def predict(model, data, threshold):
     reconstructions = model(data)
-    loss = tf.keras.losses.mse(reconstructions, data)
-    mean_mse_test = np.mean(loss, axis=1)
+    loss = tf.keras.losses.MeanSquaredError().call(data, reconstructions)
+    mean_mse_test = np.mean(loss.numpy(), axis=1)
     return tf.math.greater(mean_mse_test, threshold)
 
 
@@ -278,7 +279,6 @@ def plot_roc_curve(predictions, labels):
     plt.legend(loc="lower right")
     plt.show()
     plt.close()
-
 
 
 if __name__ == '__main__':

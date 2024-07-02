@@ -99,7 +99,7 @@ class AdversarialAutoEncoder(tf.keras.Model):
             real_output = self.discriminator.call(real_data)
             fake_output = self.discriminator.call(generated_data)
 
-            mse = tf.keras.losses.mse(generated_data, real_data)
+            mse = tf.keras.losses.MeanSquaredError().call(real_data, generated_data)
             autoencoder_loss = tf.reduce_mean(tf.nn.relu(1 - fake_output)) + tf.reduce_mean(mse)
 
             discriminator_loss = tf.reduce_mean(tf.nn.relu(1 - real_output) + tf.nn.relu(1 + fake_output))
