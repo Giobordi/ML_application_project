@@ -62,7 +62,7 @@ def main():
     mean_mse_normal = np.mean(normal_train_loss.numpy(), axis=1)
     # plot_loss(mean_mse)
 
-    threshold = np.mean(mean_mse_normal) + np.std(mean_mse_normal)
+    threshold = np.mean(mean_mse_normal) + 3 * np.std(mean_mse_normal)
     print("Threshold: ", threshold)
 
     reconstructions_slow = autoencoder.predict(test_data_slow_tensor)
@@ -89,7 +89,7 @@ def main():
     aae_mean_mse = np.mean(aae_normal_train_loss.numpy(), axis=1)
     # plot_loss(aae_mean_mse)
 
-    aae_threshold = np.mean(aae_mean_mse) + np.std(aae_mean_mse)
+    aae_threshold = np.mean(aae_mean_mse) + 3 * np.std(aae_mean_mse)
     aae_test_reconstructions_slow = aae.predict(test_data_slow_tensor)
 
     aae_test_loss_slow = tf.keras.losses.MeanSquaredError().call(test_data_slow_tensor, aae_test_reconstructions_slow)
