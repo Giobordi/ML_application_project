@@ -116,6 +116,8 @@ def main():
                 aae_preds = predict(aae, test_data_shuffled, aae_threshold)
                 print_stats(aae_preds, test_data_labels_shuffled)
 
+                plot_confusion_matrix(aae_preds, test_data_labels_shuffled)
+
 
 def init_and_train_autoencoder(train_data, validation, window_size, lr, steps_per_epoch, epochs) -> (AutoEncoder, History):
     autoencoder: AutoEncoder = AutoEncoder(window_size)
