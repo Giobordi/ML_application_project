@@ -107,7 +107,7 @@ class AutoEncoder(tf.keras.Model):
         super(AutoEncoder, self).build(input_shape)
 
     def call(self, X):
-        latent = self.encoder(X)
-        X = self.decoder(latent)
+        latent = self.encoder.call(X)
+        X = self.decoder.call(latent)
 
         return X
