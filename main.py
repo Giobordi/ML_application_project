@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 
 from utils.DataUtils import DataUtils
-from utils.ExpermentUtils import ExperimentUtils
+from utils.ExperimentUtils import ExperimentUtils
 
 load_dotenv(".env")
 
