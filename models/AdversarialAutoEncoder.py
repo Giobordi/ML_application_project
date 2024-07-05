@@ -81,6 +81,8 @@ class AdversarialAutoEncoder(tf.keras.Model):
         self.ae_optimizer = None
 
     def build(self, input_shape):
+        self.autoencoder.build(input_shape)
+        self.discriminator.build(input_shape)
         super(AdversarialAutoEncoder, self).build(input_shape)
 
     def compile(self, d_optimizer, ae_optimizer):
