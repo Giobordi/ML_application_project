@@ -74,7 +74,7 @@ class ExperimentUtils:
                        config):
         normal_reconstructions = model.predict(train_data)
 
-        PlotUtils.plot_reconstruction_error(train_data, normal_reconstructions, config)
+        PlotUtils.plot_averaged_reconstruction_error(train_data, normal_reconstructions, config)
 
         normal_train_loss = tf.keras.losses.MeanSquaredError().call(train_data, normal_reconstructions)
         mean_mse = np.mean(normal_train_loss.numpy(), axis=1)

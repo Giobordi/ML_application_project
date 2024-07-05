@@ -27,6 +27,27 @@ class PlotUtils:
         plt.show()
 
     @staticmethod
+    def plot_averaged_reconstruction_error(train_data, reconstructions, config):
+        window_number = 20  # from 0 to the number of windows created
+
+        train_data_averaged_over_samples = np.mean(np.mean(train_data, axis=2), axis=0)
+        reconstructions_over_samples = np.mean(np.mean(reconstructions, axis=2), axis=0)
+
+        # Plot the reconstruction error for each feature
+        plt.plot(train_data_averaged_over_samples, 'b')
+        plt.plot(reconstructions_over_samples, 'r')
+        plt.fill_between(np.arange(86), reconstructions_over_samples,
+                         train_data_averaged_over_samples, color='lightcoral')
+        plt.legend(labels=["Input", "Reconstruction", "Error"])
+
+        if not os.path.exists(f"{config['ARCHITECTURE']}/plot_reconstr"):
+            os.makedirs(f"{config['ARCHITECTURE']}/plot_reconstr")
+        plt.savefig(
+            f"{config['ARCHITECTURE']}/plot_reconstr/ws{config['WINDOW_SIZE']}_lr{config['LR']}_ep{config['EPOCHS']}.png")
+
+        plt.show()
+
+    @staticmethod
     def plot_loss(mean_mse):
         plt.hist(mean_mse[:, None], bins=20)
         plt.xlabel("Loss")
