@@ -127,7 +127,7 @@ def _print_stats(predictions, labels, config):
                 f"\tPrecision = {prediction}\n"
                 f"\tRecall = {recall}\n"
                 f"\tF1 = {f1_sc}\n"
-                f"\tF1.5 = {f1_sc}\n")
+                f"\tF1.5 = {f1_5}\n")
 
     return f1_5
 
