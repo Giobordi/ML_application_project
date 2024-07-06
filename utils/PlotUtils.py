@@ -28,8 +28,6 @@ class PlotUtils:
 
     @staticmethod
     def plot_averaged_reconstruction_error(train_data, reconstructions, config):
-        window_number = 20  # from 0 to the number of windows created
-
         train_data_averaged_over_samples = np.mean(np.mean(train_data, axis=2), axis=0)
         reconstructions_over_samples = np.mean(np.mean(reconstructions, axis=2), axis=0)
 

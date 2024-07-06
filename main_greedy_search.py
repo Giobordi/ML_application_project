@@ -38,7 +38,8 @@ def greedy_search(architecture, df_kuka_normal, df_kuka_slow, default_config):
     best_f1_5 = None
     best_window_config = None
 
-    for window_size, window_step_size in zip([10, 20, 30, 50, 100, 200], [1, 2, 3, 5, 10, 20]):
+    for window_size in [10, 20, 30, 50, 100, 200]:
+        window_step_size = window_size // 4
         f1_5 = experiment(df_kuka_normal, df_kuka_slow, window_size, window_step_size, lr,
                           steps_per_epoch, epochs, validation)
 
@@ -52,9 +53,8 @@ def greedy_search(architecture, df_kuka_normal, df_kuka_slow, default_config):
     # ------------------------------------
     # - Search best learning rate config -
     # ------------------------------------
-    best_f1_5 = None
-    best_lr_config = None
-    for lr in [1e-3, 1e-4, 1e-5, 1e-2]:
+    best_lr_config = lr
+    for lr in [1e-4, 1e-5, 1e-2]:
         f1_5 = experiment(df_kuka_normal, df_kuka_slow, final_window_size, final_window_step_size,
                           lr, steps_per_epoch, epochs, validation)
 
@@ -68,9 +68,8 @@ def greedy_search(architecture, df_kuka_normal, df_kuka_slow, default_config):
     # -------------------------------------
     # - Search best training epoch config -
     # -------------------------------------
-    best_f1_5 = None
-    best_epochs_config = None
-    for epochs in [2, 5, 10]:
+    best_epochs_config = epochs
+    for epochs in [5, 10]:
         f1_5 = experiment(df_kuka_normal, df_kuka_slow, final_window_size, final_window_step_size,
                           final_lr, steps_per_epoch, epochs, validation)
 
