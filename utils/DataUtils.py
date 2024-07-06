@@ -16,26 +16,32 @@ class DataUtils:
         kuka_column_names_path = os.path.join(root_dir_dataset, 'KukaColumnNames.npy')
         kuka_column_names = np.load(kuka_column_names_path)
         kuka_column_names.reshape((1, -1))
+        # Drop "anomaly" column
+        kuka_column_names = kuka_column_names[:-1]
 
         kuka_normal_path = os.path.join(root_dir_dataset, 'KukaNormal.npy')
         kuka_normal = np.load(kuka_normal_path)
-        kuka_normal = np.hstack((kuka_normal, np.zeros(kuka_normal.shape[0]).reshape(-1, 1)))
         kuka_normal = kuka_normal.astype('float32')
-        kuka_normal = (kuka_normal - np.min(kuka_normal)) / (np.max(kuka_normal) - np.min(kuka_normal))
+        denominator_normal = np.where((np.max(kuka_normal, axis=0) - np.min(kuka_normal, axis=0)) == 0, 1,
+                                      (np.max(kuka_normal, axis=0) - np.min(kuka_normal, axis=0)))
+        kuka_normal = (kuka_normal - np.min(kuka_normal, axis=0)) / denominator_normal
 
         kuka_normal = np.vstack((kuka_column_names, kuka_normal))
         df_kuka_normal = pd.DataFrame(kuka_normal)
         df_kuka_normal.columns = df_kuka_normal.iloc[0]
         df_kuka_normal = df_kuka_normal.iloc[1:]
 
-        df_kuka_normal.drop("anomaly", axis=1, inplace=True)
         df_kuka_normal = df_kuka_normal.reset_index(drop=True)
 
         # Load anomalies
         kuka_slow_path = os.path.join(root_dir_dataset, 'KukaSlow.npy')
         kuka_slow = np.load(kuka_slow_path)
+        # Drop "anomaly" column
+        kuka_slow = kuka_slow[:, :-1]
         kuka_slow = kuka_slow.astype('float32')
-        kuka_slow = (kuka_slow - np.min(kuka_slow)) / (np.max(kuka_slow) - np.min(kuka_slow))
+        denominator_slow = np.where((np.max(kuka_slow, axis=0) - np.min(kuka_slow, axis=0)) == 0, 1,
+                                    (np.max(kuka_slow, axis=0) - np.min(kuka_slow, axis=0)))
+        kuka_slow = (kuka_slow - np.min(kuka_slow, axis=0)) / denominator_slow
 
         kuka_slow = np.vstack((kuka_column_names, kuka_slow))
 
@@ -43,7 +49,6 @@ class DataUtils:
         df_kuka_slow.columns = df_kuka_slow.iloc[0]
         df_kuka_slow = df_kuka_slow.iloc[1:]
         df_kuka_slow = df_kuka_slow.reset_index(drop=True)
-        df_kuka_slow.drop("anomaly", axis=1, inplace=True)
 
         return df_kuka_normal, df_kuka_slow
 
