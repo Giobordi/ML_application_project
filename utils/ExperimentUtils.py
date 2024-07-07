@@ -76,24 +76,36 @@ class ExperimentUtils:
     @staticmethod
     def run_experiment(model, train_data, test_data_slow_tensor, test_data_shuffled_tensor, test_data_labels_shuffled,
                        config):
-        normal_reconstructions = model.predict(train_data)
 
+        normal_reconstructions = model.predict(train_data)
         PlotUtils.plot_averaged_reconstruction_error(train_data, normal_reconstructions, config)
 
         normal_train_loss = tf.keras.losses.MeanSquaredError().call(train_data, normal_reconstructions)
-        mean_mse = np.mean(normal_train_loss.numpy(), axis=1)
-        # plot_loss(mean_mse)
 
-        threshold = np.mean(mean_mse) + 3 * np.std(mean_mse)
-        test_reconstructions_slow = model.predict(test_data_slow_tensor)
+        if config['MEAN_THRESHOLD']:
+            mean_mse = np.mean(normal_train_loss.numpy(), axis=1)
+            # plot_loss(mean_mse)
+            threshold = np.mean(mean_mse) + 3 * np.std(mean_mse)
 
-        test_loss_slow = tf.keras.losses.MeanSquaredError().call(test_data_slow_tensor, test_reconstructions_slow)
-        mean_mse_test_slow = np.mean(test_loss_slow.numpy(), axis=1)
-        # plot_loss(mean_mse_test)
+            test_reconstructions_slow = model.predict(test_data_slow_tensor)
+            test_loss_slow = tf.keras.losses.MeanSquaredError().call(test_data_slow_tensor, test_reconstructions_slow)
+            mean_mse_test_slow = np.mean(test_loss_slow.numpy(), axis=1)
+            # plot_loss(mean_mse_test)
 
-        PlotUtils.plot_train_and_test_losses(mean_mse, mean_mse_test_slow, threshold, config)
+            PlotUtils.plot_train_and_test_losses(mean_mse, mean_mse_test_slow, threshold, config)
+            preds = _predict(model, test_data_shuffled_tensor, threshold)
+        else:
+            mse = normal_train_loss.numpy()
+            threshold_vector = np.mean(mse, axis=0) + 3 * np.std(mse, axis=0)
 
-        preds = _predict(model, test_data_shuffled_tensor, threshold)
+            test_reconstructions_slow = model.predict(test_data_slow_tensor)
+            test_loss_slow = tf.keras.losses.MeanSquaredError().call(test_data_slow_tensor, test_reconstructions_slow)
+            mse_test_slow = test_loss_slow.numpy()
+
+            PlotUtils.plot_train_and_test_losses_over_features(mse, mse_test_slow, threshold_vector, config)
+
+            preds = _predict_threshold_vector(model, test_data_shuffled_tensor, threshold_vector)
+
         f1_5 = _print_stats(preds, test_data_labels_shuffled, config)
 
         PlotUtils.plot_confusion_matrix(preds, test_data_labels_shuffled, config)
@@ -107,6 +119,16 @@ def _predict(model, data, threshold):
     loss = tf.keras.losses.MeanSquaredError().call(data, reconstructions)
     mean_mse_test = np.mean(loss.numpy(), axis=1)
     return tf.math.greater(mean_mse_test, threshold)
+
+
+def _predict_threshold_vector(model, data, threshold):
+    reconstructions = model.predict(data)
+    loss = tf.keras.losses.MeanSquaredError().call(data, reconstructions)
+    mse_test = loss.numpy()
+    # mse_test: (ns, 86)
+    # thr: (86,)
+    # out: (ns,)
+    return tf.math.reduce_all(tf.math.greater(mse_test, threshold), axis=1)
 
 
 def _print_stats(predictions, labels, config):

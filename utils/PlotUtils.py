@@ -2,6 +2,8 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import seaborn as sns
 from sklearn.metrics import confusion_matrix, \
     ConfusionMatrixDisplay, roc_curve, roc_auc_score
 
@@ -63,6 +65,46 @@ class PlotUtils:
         if not os.path.exists(f"{config['ARCHITECTURE']}/plot_loss"):
             os.makedirs(f"{config['ARCHITECTURE']}/plot_loss")
         plt.savefig(f"{config['ARCHITECTURE']}/plot_loss/ws{config['WINDOW_SIZE']}_lr{config['LR']}_ep{config['EPOCHS']}.png")
+
+        plt.show()
+
+    @staticmethod
+    def plot_train_and_test_losses_over_features(mse_train, mse_test, threshold_vector, config):
+        def _plot_custom_histogram(data, threshold, ax):
+            mean_mse_train, mean_mse_test = data
+            ax.hist(mean_mse_train[:, None], bins=40, color="b", alpha=0.7, label='Train')
+            ax.hist(mean_mse_test[:, None], bins=40, color="r", alpha=0.7, label='Test')
+            ax.axvline(x=threshold, color="green", linestyle="--", label='Threshold')
+            ax.set_xlabel("Loss")
+            ax.set_ylabel("No of examples")
+            ax.legend()
+
+        df_train = pd.DataFrame(mse_train[:, :20])
+        df_test = pd.DataFrame(mse_test[:, :20])
+
+        df_melted = df_train.melt(var_name='Feature', value_name='Value')
+        df_melted_test = df_test.melt(var_name='Feature', value_name='Value')
+
+        # Combine train and test data in one DataFrame
+        df_combined = pd.DataFrame({
+            'Feature': df_melted['Feature'],
+            'Train': df_melted['Value'],
+            'Test': df_melted_test['Value']
+        })
+
+        # Create a FacetGrid
+        g = sns.FacetGrid(df_combined, col='Feature', col_wrap=5, height=2, aspect=1.5, sharex=False, sharey=False)
+
+        # Map the custom plotting function to each subplot
+        for threshold, ax, feature in zip(threshold_vector, g.axes.flat, df_combined['Feature'].unique()):
+            _plot_custom_histogram((df_train[feature].values, df_test[feature].values), threshold, ax)
+
+        # Adjust the layout and show the plot
+        plt.tight_layout()
+
+        if not os.path.exists(f"{config['ARCHITECTURE']}/plot_loss_vector"):
+            os.makedirs(f"{config['ARCHITECTURE']}/plot_loss_vector")
+        plt.savefig(f"{config['ARCHITECTURE']}/plot_loss_vector/ws{config['WINDOW_SIZE']}_lr{config['LR']}_ep{config['EPOCHS']}.png")
 
         plt.show()
 
