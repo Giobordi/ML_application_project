@@ -54,6 +54,20 @@ def main():
                     best_aae_f1_5 = aae_f1_5
                     best_aae_config = (window_size, lr, epochs)
 
+    window_size, lr, epochs = best_ae_config
+    print(f"Best configuration for AE gives F1.5 = {best_ae_f1_5}, with: \n"
+          f"\t- Window Size = {window_size},\n"
+          f"\t- Window Step Size = {window_size // 4}\n"
+          f"\t- Epochs = {epochs},\n"
+          f"\t- LR = {lr}\n")
+
+    window_size, lr, epochs = best_aae_config
+    print(f"Best configuration for AAE gives F1.5 = {best_aae_f1_5}, with: \n"
+          f"\t- Window Size = {window_size},\n"
+          f"\t- Window Step Size = {window_size // 4}\n"
+          f"\t- Epochs = {epochs},\n"
+          f"\t- LR = {lr}\n")
+
 
 if __name__ == '__main__':
     main()

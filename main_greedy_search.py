@@ -82,7 +82,7 @@ def greedy_search(architecture, df_kuka_normal, df_kuka_slow, default_config):
     # ----------------
     # - Final config -
     # ----------------
-    print(f"Best configuration for AE gives F1.5 = {best_f1_5}, with: \n"
+    print(f"Best configuration for {architecture} gives F1.5 = {best_f1_5}, with: \n"
           f"\t- Window Size = {final_window_size},\n"
           f"\t- Window Step Size = {final_window_step_size}\n"
           f"\t- Epochs = {final_epochs},\n"
