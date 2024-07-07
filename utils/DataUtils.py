@@ -50,6 +50,9 @@ class DataUtils:
         df_kuka_slow = df_kuka_slow.iloc[1:]
         df_kuka_slow = df_kuka_slow.reset_index(drop=True)
 
+        df_kuka_normal = df_kuka_normal.astype('float32')
+        df_kuka_slow = df_kuka_slow.astype('float32')
+
         return df_kuka_normal, df_kuka_slow
 
     @staticmethod
