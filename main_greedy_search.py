@@ -6,10 +6,10 @@ def main():
     # Default config
     lr = 1e-3
     epochs = 2
-    steps_per_epoch = 100
     validation = False
+    mean_threshold = True
 
-    default_config = (lr, epochs, steps_per_epoch, validation)
+    default_config = (lr, epochs, validation, mean_threshold)
 
     # Load dataset
     df_kuka_normal, df_kuka_slow = DataUtils.load_dataset()
@@ -30,7 +30,7 @@ def greedy_search(architecture, df_kuka_normal, df_kuka_slow, default_config):
         raise TypeError(f"Invalid architecture {architecture}")
 
     # Load default config
-    lr, epochs, steps_per_epoch, validation = default_config
+    lr, epochs, validation, mean_threshold = default_config
 
     # -----------------------------
     # - Search best window config -
@@ -41,7 +41,7 @@ def greedy_search(architecture, df_kuka_normal, df_kuka_slow, default_config):
     for window_size in [10, 20, 30, 50, 100, 200]:
         window_step_size = window_size // 4
         f1_5 = experiment(df_kuka_normal, df_kuka_slow, window_size, window_step_size, lr,
-                          steps_per_epoch, epochs, validation)
+                          epochs, validation, mean_threshold)
 
         if best_f1_5 is None or f1_5 > best_f1_5:
             best_f1_5 = f1_5
@@ -56,7 +56,7 @@ def greedy_search(architecture, df_kuka_normal, df_kuka_slow, default_config):
     best_lr_config = lr
     for lr in [1e-4, 1e-5, 1e-2]:
         f1_5 = experiment(df_kuka_normal, df_kuka_slow, final_window_size, final_window_step_size,
-                          lr, steps_per_epoch, epochs, validation)
+                          lr, epochs, validation, mean_threshold)
 
         if best_f1_5 is None or f1_5 > best_f1_5:
             best_f1_5 = f1_5
@@ -71,11 +71,11 @@ def greedy_search(architecture, df_kuka_normal, df_kuka_slow, default_config):
     best_epochs_config = epochs
     for epochs in [5, 10]:
         f1_5 = experiment(df_kuka_normal, df_kuka_slow, final_window_size, final_window_step_size,
-                          final_lr, steps_per_epoch, epochs, validation)
+                          final_lr, epochs, validation, mean_threshold)
 
         if best_f1_5 is None or f1_5 > best_f1_5:
             best_f1_5 = f1_5
-            best_epochs_config = lr
+            best_epochs_config = epochs
 
     final_epochs = best_epochs_config
 

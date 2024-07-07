@@ -12,12 +12,14 @@ from models.AutoEncoder import AutoEncoder
 from utils.DataUtils import DataUtils
 from utils.PlotUtils import PlotUtils
 
+BATCH_SIZE = 256
+
 
 class ExperimentUtils:
 
     @staticmethod
-    def ae_experiment(df_kuka_normal, df_kuka_slow, window_size, window_step_size, lr, steps_per_epoch, epochs,
-                      validation):
+    def ae_experiment(df_kuka_normal, df_kuka_slow, window_size, window_step_size, lr, epochs,
+                      validation: bool, mean_threshold: bool):
         print(f"-----------------------------------------------------------------------------------")
         print(f"Running AE experiment with config: WS = {window_size}, lr = {lr}, epochs = {epochs}")
         print(f"-----------------------------------------------------------------------------------")
@@ -28,7 +30,7 @@ class ExperimentUtils:
 
         # AutoEncoder
         autoencoder, train_history_ae = _init_and_train_model(
-            architecture, train_data, validation, window_size, lr, steps_per_epoch, epochs
+            architecture, train_data, validation, window_size, lr, epochs
         )
         print(train_history_ae.history)
 
@@ -36,15 +38,16 @@ class ExperimentUtils:
             "ARCHITECTURE": architecture,
             "EPOCHS": epochs,
             "LR": lr,
-            "WINDOW_SIZE": window_size
+            "WINDOW_SIZE": window_size,
+            "MEAN_THRESHOLD": mean_threshold
         }
 
         return ExperimentUtils.run_experiment(autoencoder, train_data, test_data_slow_tensor, test_data_shuffled_tensor,
                                               test_data_labels_shuffled, config)
 
     @staticmethod
-    def aae_experiment(df_kuka_normal, df_kuka_slow, window_size, window_step_size, lr, steps_per_epoch, epochs,
-                       validation):
+    def aae_experiment(df_kuka_normal, df_kuka_slow, window_size, window_step_size, lr, epochs,
+                       validation: bool, mean_threshold: bool):
         print(f"-----------------------------------------------------------------------------------")
         print(f"Running AAE experiment with config: WS = {window_size}, lr = {lr}, epochs = {epochs}")
         print(f"-----------------------------------------------------------------------------------")
@@ -55,7 +58,7 @@ class ExperimentUtils:
 
         # Adversarial AutoEncoder
         aae, train_history_aae = _init_and_train_model(
-            architecture, train_data, validation, window_size, lr, steps_per_epoch, epochs
+            architecture, train_data, validation, window_size, lr, epochs
         )
         print(train_history_aae.history)
 
@@ -63,7 +66,8 @@ class ExperimentUtils:
             "ARCHITECTURE": architecture,
             "EPOCHS": epochs,
             "LR": lr,
-            "WINDOW_SIZE": window_size
+            "WINDOW_SIZE": window_size,
+            "MEAN_THRESHOLD": mean_threshold
         }
 
         return ExperimentUtils.run_experiment(aae, train_data, test_data_slow_tensor, test_data_shuffled_tensor,
@@ -132,13 +136,14 @@ def _print_stats(predictions, labels, config):
     return f1_5
 
 
-def _init_and_train_model(architecture, train_data, validation, window_size, lr, steps_per_epoch, epochs) -> (
+def _init_and_train_model(architecture, train_data, validation, window_size, lr, epochs) -> (
         AutoEncoder | AdversarialAutoEncoder, History):
     if architecture == "ae":
         model: AutoEncoder = AutoEncoder(window_size)
         model.build(train_data.shape)
         optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
         model.compile(optimizer=optimizer, loss='mse')
+        callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
 
     elif architecture == "aae":
         model: AdversarialAutoEncoder = AdversarialAutoEncoder(window_size)
@@ -147,26 +152,35 @@ def _init_and_train_model(architecture, train_data, validation, window_size, lr,
         autoencoder_optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
         discriminator_optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
         model.compile(discriminator_optimizer, autoencoder_optimizer)
+        callback = None
     else:
         raise TypeError(f"Unknown architecture: {architecture}")
 
-    callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
     training_history: History
 
     if validation:
         train_normal, val_normal = train_test_split(train_data, test_size=0.2)
 
-        train_dataset = tf.data.Dataset.from_tensor_slices((train_normal, train_normal)).repeat().batch(256)
-        validation_dataset = tf.data.Dataset.from_tensor_slices((val_normal, val_normal)).batch(256)
+        train_dataset = (tf.data.Dataset.from_tensor_slices((train_normal, train_normal))
+                         .repeat()
+                         .shuffle(buffer_size=len(train_normal))
+                         .batch(BATCH_SIZE))
+        validation_dataset = tf.data.Dataset.from_tensor_slices((val_normal, val_normal)).batch(BATCH_SIZE)
 
+        steps_per_epoch = int(np.ceil(train_normal.shape[0] / BATCH_SIZE))
         training_history = model.fit(train_dataset, steps_per_epoch=steps_per_epoch, epochs=epochs,
-                                     callbacks=[callback, tensorboard_callback],
+                                     callbacks=[cb for cb in [callback, tensorboard_callback] if cb is not None],
                                      validation_data=validation_dataset)
     else:
-        train_dataset = tf.data.Dataset.from_tensor_slices((train_data, train_data)).repeat().batch(256)
+        train_dataset = (tf.data.Dataset.from_tensor_slices((train_data, train_data))
+                         .repeat()
+                         .shuffle(buffer_size=len(train_data))
+                         .batch(BATCH_SIZE))
+
+        steps_per_epoch = int(np.ceil(train_data.shape[0] / BATCH_SIZE))
         training_history = model.fit(train_dataset, steps_per_epoch=steps_per_epoch, epochs=epochs,
-                                     callbacks=[callback, tensorboard_callback])
+                                     callbacks=[cb for cb in [callback, tensorboard_callback] if cb is not None])
 
     # model.summary()
 
