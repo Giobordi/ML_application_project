@@ -87,16 +87,26 @@ class ExperimentUtils:
             # plot_loss(mean_mse)
             threshold = np.mean(mean_mse) + 3 * np.std(mean_mse)
 
-            test_reconstructions_slow = model.predict(test_data_slow_tensor)
-            test_loss_slow = tf.keras.losses.MeanSquaredError().call(test_data_slow_tensor, test_reconstructions_slow)
-            mean_mse_test_slow = np.mean(test_loss_slow.numpy(), axis=1)
-            # plot_loss(mean_mse_test)
+            test_reconstructions = model.predict(test_data_shuffled_tensor)
+            test_loss = tf.keras.losses.MeanSquaredError().call(test_data_shuffled_tensor, test_reconstructions)
 
-            PlotUtils.plot_train_and_test_losses(mean_mse, mean_mse_test_slow, threshold, config)
+            normal_test_losses_indices = np.where(test_data_labels_shuffled == 0)[0]
+            anomalies_test_losses_indices = np.where(test_data_labels_shuffled == 1)[0]
+
+            normal_losses = tf.gather(test_loss, normal_test_losses_indices)
+            anomaly_losses = tf.gather(test_loss, anomalies_test_losses_indices)
+
+            mean_mse_normal_test = np.mean(normal_losses.numpy(), axis=1)
+            mean_mse_anomaly_test = np.mean(anomaly_losses.numpy(), axis=1)
+
+            PlotUtils.plot_train_and_test_split_losses(mean_mse, mean_mse_normal_test, mean_mse_anomaly_test, threshold, config)
+
             preds = _predict(model, test_data_shuffled_tensor, threshold)
         else:
             mse = normal_train_loss.numpy()
             threshold_vector = np.mean(mse, axis=0) + 3 * np.std(mse, axis=0)
+
+            # TODO: plot_train_and_test_split_losses
 
             test_reconstructions_slow = model.predict(test_data_slow_tensor)
             test_loss_slow = tf.keras.losses.MeanSquaredError().call(test_data_slow_tensor, test_reconstructions_slow)
@@ -115,9 +125,14 @@ class ExperimentUtils:
 
 
 def _predict(model, data, threshold):
-    reconstructions = model(data)
+    # FIXME: stiamo facendo la stessa cosa che nel fare il grafico => Ottimiziamo
+    reconstructions = model.predict(data)
     loss = tf.keras.losses.MeanSquaredError().call(data, reconstructions)
+    # loss: (ns, 86)
     mean_mse_test = np.mean(loss.numpy(), axis=1)
+    # mean_mse_test: (ns,)
+    # thr: 1
+    # out: (ns,)
     return tf.math.greater(mean_mse_test, threshold)
 
 

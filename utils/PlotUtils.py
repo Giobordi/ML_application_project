@@ -69,6 +69,22 @@ class PlotUtils:
         plt.show()
 
     @staticmethod
+    def plot_train_and_test_split_losses(mean_mse_train, mean_mse_normal_test, mean_mse_anomaly_test, threshold, config):
+        plt.hist(mean_mse_train[:, None], bins=40, color="b")
+        plt.hist(mean_mse_normal_test[:, None], bins=40, color="g")
+        plt.hist(mean_mse_anomaly_test[:, None], bins=40, color="r")
+        plt.axvline(x=threshold, color="black", linestyle="--")
+        plt.xlabel("Loss")
+        plt.ylabel("No of examples")
+
+        if not os.path.exists(f"{config['ARCHITECTURE']}/plot_loss"):
+            os.makedirs(f"{config['ARCHITECTURE']}/plot_loss")
+        plt.savefig(
+            f"{config['ARCHITECTURE']}/plot_loss/ws{config['WINDOW_SIZE']}_lr{config['LR']}_ep{config['EPOCHS']}.png")
+
+        plt.show()
+
+    @staticmethod
     def plot_train_and_test_losses_over_features(mse_train, mse_test, threshold_vector, config):
         def _plot_custom_histogram(data, threshold, ax):
             mean_mse_train, mean_mse_test = data
