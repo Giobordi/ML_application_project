@@ -101,7 +101,7 @@ class ExperimentUtils:
 
             PlotUtils.plot_train_and_test_split_losses(mean_mse, mean_mse_normal_test, mean_mse_anomaly_test, threshold, config)
 
-            preds = _predict(model, test_data_shuffled_tensor, threshold)
+            preds = _classify(test_loss, threshold)
         else:
             mse = normal_train_loss.numpy()
             threshold_vector = np.mean(mse, axis=0) + 3 * np.std(mse, axis=0)
@@ -124,10 +124,7 @@ class ExperimentUtils:
         return f1_5
 
 
-def _predict(model, data, threshold):
-    # FIXME: stiamo facendo la stessa cosa che nel fare il grafico => Ottimiziamo
-    reconstructions = model.predict(data)
-    loss = tf.keras.losses.MeanSquaredError().call(data, reconstructions)
+def _classify(loss, threshold):
     # loss: (ns, 86)
     mean_mse_test = np.mean(loss.numpy(), axis=1)
     # mean_mse_test: (ns,)
