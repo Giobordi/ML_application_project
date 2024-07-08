@@ -110,6 +110,23 @@ class DataUtils:
 
         return train_data, test_data_shuffled_tensor, test_data_labels_shuffled, test_data_slow_tensor
 
+    @staticmethod
+    def parse_log_file(file_path):
+        data = []
+        with open(file_path, 'r') as file:
+            for line in file:
+                if line.startswith('Windows_size'):
+                    params = line.split()
+                    window_size = int(params[2])
+                    lr = float(params[5])
+                    epochs = int(params[8])
+                if line.strip().startswith('F1 '):
+                    f1 = float(line.split('=')[1].strip())
+                if line.strip().startswith('F1.5 '):
+                    f1_5 = float(line.split('=')[1].strip())
+                    data.append({'Window Size': window_size, 'Learning Rate': lr, 'Epochs': epochs, 'F1 Score': f1, 'F1.5 Score': f1_5})
+        return pd.DataFrame(data)
+
 
 def _insert_anomaly_in_normal_task(normal_array, anomaly_array, window_size, window_step_size):
     _, normal_subset = train_test_split(normal_array, test_size=0.3, shuffle=False)

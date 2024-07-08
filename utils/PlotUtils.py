@@ -7,6 +7,8 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix, \
     ConfusionMatrixDisplay, roc_curve, roc_auc_score
 
+from utils.DataUtils import DataUtils
+
 
 class PlotUtils:
 
@@ -161,3 +163,45 @@ class PlotUtils:
 
         plt.show()
         plt.close()
+
+    @staticmethod
+    def plot_execution_logs():
+        # Get the current directory and parse the AE log file
+        current_dir = os.getcwd()
+        ae_df = DataUtils.parse_log_file(os.path.join(current_dir, 'AE_logging_file.txt'))
+        aae_df = DataUtils.parse_log_file(os.path.join(current_dir, 'AAE_logging_file.txt'))
+
+        # Set up the plotting style
+        _inner_plot_execution_logs(ae_df, "AE")
+        _inner_plot_execution_logs(aae_df, "AAE")
+
+
+def _inner_plot_execution_logs(df, architecture):
+    sns.set(style="whitegrid")
+    plt.figure(figsize=(15, 10))
+
+    row_best_f1 = df.loc[df['F1 Score'].idxmax()]
+
+    # Plot 1: Effect of Window Size on F1 Score
+    plt.subplot(2, 1, 1)
+    sns.lineplot(data=df[
+        (df['Learning Rate'] == row_best_f1['Learning Rate']) & (df['Epochs'] == row_best_f1['Epochs'])],
+                 x='Window Size', y='F1 Score', markers=True)
+    plt.title(
+        f'{architecture}: Effect of Window Size on F1 Score (LR={row_best_f1["Learning Rate"]}, Epochs={row_best_f1["Epochs"]})')
+    plt.ylim(0, 1)
+
+    # Plot 2: Effect of Epochs on F1 Score
+    plt.subplot(2, 1, 2)
+    sns.lineplot(data=df[(df['Window Size'] == row_best_f1['Window Size']) & (
+            df['Learning Rate'] == row_best_f1['Learning Rate'])], x='Epochs', y='F1 Score',
+                 markers=True)
+    plt.title(
+        f'{architecture}: Effect of Epochs on F1 Score (Window Size={row_best_f1["Window Size"]}, LR={row_best_f1["Learning Rate"]})')
+    plt.ylim(0.9, 1)
+
+    plt.tight_layout()
+    plt.savefig(f'{architecture}_analysis_F1.png')
+    plt.close()
+
+    print(f"{architecture} analysis complete. Plot saved as '{architecture}_analysis_F1.png'.")
