@@ -164,44 +164,77 @@ class PlotUtils:
         plt.show()
         plt.close()
 
+    
     @staticmethod
     def plot_execution_logs():
-        # Get the current directory and parse the AE log file
         current_dir = os.getcwd()
         ae_df = DataUtils.parse_log_file(os.path.join(current_dir, 'AE_logging_file.txt'))
-        aae_df = DataUtils.parse_log_file(os.path.join(current_dir, 'AAE_logging_file.txt'))
+        aae_df = DataUtils.parse_log_file(os.path.join(current_dir,'AAE_logging_file.txt'))
 
-        # Set up the plotting style
-        _inner_plot_execution_logs(ae_df, "AE")
-        _inner_plot_execution_logs(aae_df, "AAE")
+        # Add a column to distinguish between AE and AAE
+        ae_df['Architecture'] = 'AE'
+        aae_df['Architecture'] = 'AAE'
 
+    #       # Combine both DataFrames
+        df = pd.concat([ae_df, aae_df], ignore_index=True)
+        
+    # def _inner_plot_execution_logs(df):
+        sns.set(style="whitegrid")
+        plt.figure(figsize=(20, 15))
 
-def _inner_plot_execution_logs(df, architecture):
-    sns.set(style="whitegrid")
-    plt.figure(figsize=(15, 10))
+        # Find the rows with the best scores for AE and AAE separately
+        row_best_f1_ae = df[df['Architecture'] == 'AE'].loc[df[df['Architecture'] == 'AE']['F1 Score'].idxmax()]
+        row_best_f1_aae = df[df['Architecture'] == 'AAE'].loc[df[df['Architecture'] == 'AAE']['F1 Score'].idxmax()]
 
-    row_best_f1 = df.loc[df['F1 Score'].idxmax()]
+        row_best_f1_5_ae = df[df['Architecture'] == 'AE'].loc[df[df['Architecture'] == 'AE']['F1.5 Score'].idxmax()]
+        row_best_f1_5_aae = df[df['Architecture'] == 'AAE'].loc[df[df['Architecture'] == 'AAE']['F1.5 Score'].idxmax()]
 
-    # Plot 1: Effect of Window Size on F1 Score
-    plt.subplot(2, 1, 1)
-    sns.lineplot(data=df[
-        (df['Learning Rate'] == row_best_f1['Learning Rate']) & (df['Epochs'] == row_best_f1['Epochs'])],
-                 x='Window Size', y='F1 Score', markers=True)
-    plt.title(
-        f'{architecture}: Effect of Window Size on F1 Score (LR={row_best_f1["Learning Rate"]}, Epochs={row_best_f1["Epochs"]})')
-    plt.ylim(0, 1)
+        # Plot 1: Effect of Window Size on F1 Score
+        plt.subplot(2, 2, 1)
+        sns.lineplot(data=df[
+            ((df['Window Size'] == row_best_f1_ae['Window Size']) & (df['Epochs'] == row_best_f1_ae['Epochs'])) | 
+            ((df['Window Size'] == row_best_f1_aae['Window Size']) & (df['Epochs'] == row_best_f1_aae['Epochs']))],
+                    x='Window Size', y='F1 Score', hue='Architecture', markers=True)
+        plt.title(
+            f'Effect of Window Size on F1 Score - AE LR = {row_best_f1_ae["Learning Rate"]}, Epochs = {row_best_f1_ae["Epochs"]} - AAE LR = {row_best_f1_aae["Learning Rate"]}, Epochs = {row_best_f1_aae["Epochs"]}')
+        plt.ylim(0.8, 1)
+        plt.legend(title='Architecture')
 
-    # Plot 2: Effect of Epochs on F1 Score
-    plt.subplot(2, 1, 2)
-    sns.lineplot(data=df[(df['Window Size'] == row_best_f1['Window Size']) & (
-            df['Learning Rate'] == row_best_f1['Learning Rate'])], x='Epochs', y='F1 Score',
-                 markers=True)
-    plt.title(
-        f'{architecture}: Effect of Epochs on F1 Score (Window Size={row_best_f1["Window Size"]}, LR={row_best_f1["Learning Rate"]})')
-    plt.ylim(0.9, 1)
+        # Plot 2: Effect of Epochs on F1 Score
+        plt.subplot(2, 2, 2)
+        sns.lineplot(data=df[
+            ((df['Window Size'] == row_best_f1_ae['Window Size']) & (df['Learning Rate'] == row_best_f1_ae['Learning Rate'])) | 
+            ((df['Window Size'] == row_best_f1_aae['Window Size']) & (df['Learning Rate'] == row_best_f1_aae['Learning Rate']))],
+                    x='Epochs', y='F1 Score', hue='Architecture', markers=True)
+        plt.title(
+            f"Effect of Epochs on F1 Score - AE WS = {row_best_f1_ae['Window Size']}, LR = {row_best_f1_ae['Learning Rate']} - AAE WS = {row_best_f1_aae['Window Size']}, LR = {row_best_f1_aae['Learning Rate']}")
+        plt.ylim(0, 1)
+        plt.legend(title='Architecture')
 
-    plt.tight_layout()
-    plt.savefig(f'{architecture}_analysis_F1.png')
-    plt.close()
+        # Plot 3: Effect of Learning Rate on F1.5 Score
+        plt.subplot(2, 2, 3)
+        sns.lineplot(data=df[
+            ((df['Window Size'] == row_best_f1_5_ae['Window Size']) & (df['Epochs'] == row_best_f1_5_ae['Epochs'])) | 
+            ((df['Window Size'] == row_best_f1_5_aae['Window Size']) & (df['Epochs'] == row_best_f1_5_aae['Epochs']))],
+                    x='Window Size', y='F1.5 Score', hue='Architecture', markers=True)
+        plt.title(
+            f'Effect of Window Size on F1.5 Score - AE LR = {row_best_f1_ae["Learning Rate"]}, Epochs = {row_best_f1_ae["Epochs"]} - AAE LR = {row_best_f1_aae["Learning Rate"]}, Epochs = {row_best_f1_aae["Epochs"]}')
+        plt.ylim(0, 1)
+        plt.legend(title='Architecture')
+        
+        # Plot 4: Effect of Epochs on F1.5 Score
+        plt.subplot(2, 2, 4)
+        sns.lineplot(data=df[
+            ((df['Window Size'] == row_best_f1_5_ae['Window Size']) & (df['Learning Rate'] == row_best_f1_5_ae['Learning Rate'])) | 
+            ((df['Window Size'] == row_best_f1_5_aae['Window Size']) & (df['Learning Rate'] == row_best_f1_5_aae['Learning Rate']))],
+                    x='Epochs', y='F1.5 Score', hue='Architecture', markers=True)
+        plt.title(
+            f'Effect of Epochs on F1.5 Score - AE WS = {row_best_f1_ae["Window Size"]}, LR = {row_best_f1_ae["Learning Rate"]} - AAE WS = {row_best_f1_aae["Window Size"]}, LR = {row_best_f1_aae["Learning Rate"]}')
+        plt.ylim(0.6, 1)
+        plt.legend(title='Architecture')
 
-    print(f"{architecture} analysis complete. Plot saved as '{architecture}_analysis_F1.png'.")
+        plt.tight_layout()
+        plt.savefig('combined_analysis.png')
+        plt.close()
+
+        print("Combined analysis complete. Plot saved as 'combined_analysis.png'.")
