@@ -87,27 +87,31 @@ class PlotUtils:
         plt.show()
 
     @staticmethod
-    def plot_train_and_test_losses_over_features(mse_train, mse_test, threshold_vector, config):
+    def plot_train_and_test_losses_over_features(mse_train, mean_mse_normal_test, mean_mse_anomaly_test, threshold_vector, config):
         def _plot_custom_histogram(data, threshold, ax):
-            mean_mse_train, mean_mse_test = data
+            mean_mse_train, mean_mse_normal_test, mean_mse_anomaly_test = data
             ax.hist(mean_mse_train[:, None], bins=40, color="b", alpha=0.7, label='Train')
-            ax.hist(mean_mse_test[:, None], bins=40, color="r", alpha=0.7, label='Test')
-            ax.axvline(x=threshold, color="green", linestyle="--", label='Threshold')
+            ax.hist(mean_mse_normal_test[:, None], bins=40, color="g", alpha=0.7, label='Test Normal')
+            ax.hist(mean_mse_anomaly_test[:, None], bins=40, color="r", alpha=0.7, label='Test Anomalies')
+            ax.axvline(x=threshold, color="black", linestyle="--", label='Threshold')
             ax.set_xlabel("Loss")
             ax.set_ylabel("No of examples")
             ax.legend()
 
         df_train = pd.DataFrame(mse_train[:, :20])
-        df_test = pd.DataFrame(mse_test[:, :20])
+        df_test_normal = pd.DataFrame(mean_mse_normal_test[:, :20])
+        df_test_anomalies = pd.DataFrame(mean_mse_anomaly_test[:, :20])
 
         df_melted = df_train.melt(var_name='Feature', value_name='Value')
-        df_melted_test = df_test.melt(var_name='Feature', value_name='Value')
+        df_melted_test_normal = df_test_normal.melt(var_name='Feature', value_name='Value')
+        df_melted_test_anomalies = df_test_anomalies.melt(var_name='Feature', value_name='Value')
 
         # Combine train and test data in one DataFrame
         df_combined = pd.DataFrame({
             'Feature': df_melted['Feature'],
             'Train': df_melted['Value'],
-            'Test': df_melted_test['Value']
+            'Test Normal': df_melted_test_normal['Value'],
+            'Test Anomalies': df_melted_test_anomalies['Value']
         })
 
         # Create a FacetGrid
@@ -115,7 +119,7 @@ class PlotUtils:
 
         # Map the custom plotting function to each subplot
         for threshold, ax, feature in zip(threshold_vector, g.axes.flat, df_combined['Feature'].unique()):
-            _plot_custom_histogram((df_train[feature].values, df_test[feature].values), threshold, ax)
+            _plot_custom_histogram((df_train[feature].values, df_test_normal[feature].values, df_test_anomalies[feature].values), threshold, ax)
 
         # Adjust the layout and show the plot
         plt.tight_layout()
@@ -192,49 +196,55 @@ class PlotUtils:
         # Plot 1: Effect of Window Size on F1 Score
         plt.subplot(2, 2, 1)
         sns.lineplot(data=df[
-            ((df['Window Size'] == row_best_f1_ae['Window Size']) & (df['Epochs'] == row_best_f1_ae['Epochs'])) | 
-            ((df['Window Size'] == row_best_f1_aae['Window Size']) & (df['Epochs'] == row_best_f1_aae['Epochs']))],
+            ((df['Learning Rate'] == row_best_f1_ae['Learning Rate']) & (df['Epochs'] == row_best_f1_ae['Epochs']) & (df['Architecture'] == 'AE')) |
+            ((df['Learning Rate'] == row_best_f1_aae['Learning Rate']) & (df['Epochs'] == row_best_f1_aae['Epochs']) & (df['Architecture'] == 'AAE'))],
                     x='Window Size', y='F1 Score', hue='Architecture', markers=True)
         plt.title(
-            f'Effect of Window Size on F1 Score - AE LR = {row_best_f1_ae["Learning Rate"]}, Epochs = {row_best_f1_ae["Epochs"]} - AAE LR = {row_best_f1_aae["Learning Rate"]}, Epochs = {row_best_f1_aae["Epochs"]}')
-        plt.ylim(0.8, 1)
+            f'Effect of Window Size on F1 Score\nAE LR = {row_best_f1_ae["Learning Rate"]}, Epochs = {row_best_f1_ae["Epochs"]}\nAAE LR = {row_best_f1_aae["Learning Rate"]}, Epochs = {row_best_f1_aae["Epochs"]}')
+        plt.ylim(0, 1)
         plt.legend(title='Architecture')
 
         # Plot 2: Effect of Epochs on F1 Score
         plt.subplot(2, 2, 2)
         sns.lineplot(data=df[
-            ((df['Window Size'] == row_best_f1_ae['Window Size']) & (df['Learning Rate'] == row_best_f1_ae['Learning Rate'])) | 
-            ((df['Window Size'] == row_best_f1_aae['Window Size']) & (df['Learning Rate'] == row_best_f1_aae['Learning Rate']))],
+            ((df['Window Size'] == row_best_f1_ae['Window Size']) & (df['Learning Rate'] == row_best_f1_ae['Learning Rate']) & (df['Architecture'] == 'AE')) |
+            ((df['Window Size'] == row_best_f1_aae['Window Size']) & (df['Learning Rate'] == row_best_f1_aae['Learning Rate']) & (df['Architecture'] == 'AAE'))],
                     x='Epochs', y='F1 Score', hue='Architecture', markers=True)
         plt.title(
-            f"Effect of Epochs on F1 Score - AE WS = {row_best_f1_ae['Window Size']}, LR = {row_best_f1_ae['Learning Rate']} - AAE WS = {row_best_f1_aae['Window Size']}, LR = {row_best_f1_aae['Learning Rate']}")
-        plt.ylim(0, 1)
+            f"Effect of Epochs on F1 Score\nAE WS = {row_best_f1_ae['Window Size']}, LR = {row_best_f1_ae['Learning Rate']}\nAAE WS = {row_best_f1_aae['Window Size']}, LR = {row_best_f1_aae['Learning Rate']}")
+        plt.ylim(0.75, 1)
         plt.legend(title='Architecture')
 
-        # Plot 3: Effect of Learning Rate on F1.5 Score
+        # Plot 3: Effect of Window Size on F1.5 Score
         plt.subplot(2, 2, 3)
         sns.lineplot(data=df[
-            ((df['Window Size'] == row_best_f1_5_ae['Window Size']) & (df['Epochs'] == row_best_f1_5_ae['Epochs'])) | 
-            ((df['Window Size'] == row_best_f1_5_aae['Window Size']) & (df['Epochs'] == row_best_f1_5_aae['Epochs']))],
+            ((df['Learning Rate'] == row_best_f1_5_ae['Learning Rate']) & (df['Epochs'] == row_best_f1_5_ae['Epochs']) & (df['Architecture'] == 'AE')) |
+            ((df['Learning Rate'] == row_best_f1_5_aae['Learning Rate']) & (df['Epochs'] == row_best_f1_5_aae['Epochs']) & (df['Architecture'] == 'AAE'))],
                     x='Window Size', y='F1.5 Score', hue='Architecture', markers=True)
         plt.title(
-            f'Effect of Window Size on F1.5 Score - AE LR = {row_best_f1_ae["Learning Rate"]}, Epochs = {row_best_f1_ae["Epochs"]} - AAE LR = {row_best_f1_aae["Learning Rate"]}, Epochs = {row_best_f1_aae["Epochs"]}')
+            f'Effect of Window Size on F1.5 Score\nAE LR = {row_best_f1_ae["Learning Rate"]}, Epochs = {row_best_f1_ae["Epochs"]}\nAAE LR = {row_best_f1_aae["Learning Rate"]}, Epochs = {row_best_f1_aae["Epochs"]}')
         plt.ylim(0, 1)
         plt.legend(title='Architecture')
         
         # Plot 4: Effect of Epochs on F1.5 Score
         plt.subplot(2, 2, 4)
         sns.lineplot(data=df[
-            ((df['Window Size'] == row_best_f1_5_ae['Window Size']) & (df['Learning Rate'] == row_best_f1_5_ae['Learning Rate'])) | 
-            ((df['Window Size'] == row_best_f1_5_aae['Window Size']) & (df['Learning Rate'] == row_best_f1_5_aae['Learning Rate']))],
+            ((df['Window Size'] == row_best_f1_5_ae['Window Size']) & (df['Learning Rate'] == row_best_f1_5_ae['Learning Rate']) & (df['Architecture'] == 'AE')) |
+            ((df['Window Size'] == row_best_f1_5_aae['Window Size']) & (df['Learning Rate'] == row_best_f1_5_aae['Learning Rate']) & (df['Architecture'] == 'AAE'))],
                     x='Epochs', y='F1.5 Score', hue='Architecture', markers=True)
         plt.title(
-            f'Effect of Epochs on F1.5 Score - AE WS = {row_best_f1_ae["Window Size"]}, LR = {row_best_f1_ae["Learning Rate"]} - AAE WS = {row_best_f1_aae["Window Size"]}, LR = {row_best_f1_aae["Learning Rate"]}')
-        plt.ylim(0.6, 1)
+            f'Effect of Epochs on F1.5 Score\nAE WS = {row_best_f1_ae["Window Size"]}, LR = {row_best_f1_ae["Learning Rate"]}\nAAE WS = {row_best_f1_aae["Window Size"]}, LR = {row_best_f1_aae["Learning Rate"]}')
+        plt.ylim(0.75, 1)
         plt.legend(title='Architecture')
 
         plt.tight_layout()
         plt.savefig('combined_analysis.png')
         plt.close()
 
+        plt.show()
         print("Combined analysis complete. Plot saved as 'combined_analysis.png'.")
+        print(f"Best F1 AE: \n{row_best_f1_ae}\n")
+        print(f"Best F1 AAE: \n{row_best_f1_aae}\n")
+
+        print(f"Best F1.5 AE: \n{row_best_f1_5_ae}\n")
+        print(f"Best F1.5 AAE: \n{row_best_f1_5_aae}\n")
