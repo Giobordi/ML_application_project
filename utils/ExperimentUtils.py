@@ -104,24 +104,38 @@ class ExperimentUtils:
             preds = _classify(test_loss, threshold)
         else:
             mse = normal_train_loss.numpy()
-            threshold_vector = np.mean(mse, axis=0) + 3 * np.std(mse, axis=0)
+            threshold_vector_mse_3std = np.mean(mse, axis=0) + 3 * np.std(mse, axis=0)
+            threshold_vector_mse_std = np.mean(mse, axis=0) + np.std(mse, axis=0)
+            threshold_vector_max = np.max(mse, axis=0)
+            threshold_vector_max_mse_std = np.max(np.vstack((threshold_vector_mse_std, threshold_vector_max)), axis=0)
 
-            # TODO: plot_train_and_test_split_losses
+            test_reconstructions = model.predict(test_data_shuffled_tensor)
+            test_loss = tf.keras.losses.MeanSquaredError().call(test_data_shuffled_tensor, test_reconstructions)
 
-            test_reconstructions_slow = model.predict(test_data_slow_tensor)
-            test_loss_slow = tf.keras.losses.MeanSquaredError().call(test_data_slow_tensor, test_reconstructions_slow)
-            mse_test_slow = test_loss_slow.numpy()
+            normal_test_losses_indices = np.where(test_data_labels_shuffled == 0)[0]
+            anomalies_test_losses_indices = np.where(test_data_labels_shuffled == 1)[0]
 
-            PlotUtils.plot_train_and_test_losses_over_features(mse, mse_test_slow, threshold_vector, config)
+            normal_losses = tf.gather(test_loss, normal_test_losses_indices)
+            anomaly_losses = tf.gather(test_loss, anomalies_test_losses_indices)
 
-            preds = _predict_threshold_vector(model, test_data_shuffled_tensor, threshold_vector)
+            mean_mse_normal_test = normal_losses.numpy()
+            mean_mse_anomaly_test = anomaly_losses.numpy()
 
-        f1_5 = _print_stats(preds, test_data_labels_shuffled, config)
+            config['th_type'] = '3_std'
+            PlotUtils.plot_train_and_test_losses_over_features(mse, mean_mse_normal_test, mean_mse_anomaly_test, threshold_vector_mse_3std, config)
+            preds = _classify_threshold_vector(test_loss, threshold_vector_mse_3std)
+            f1_5 = _print_stats(preds, test_data_labels_shuffled, config)
+            PlotUtils.plot_confusion_matrix(preds, test_data_labels_shuffled, config)
+            PlotUtils.plot_roc_curve(preds, test_data_labels_shuffled, config)
 
-        PlotUtils.plot_confusion_matrix(preds, test_data_labels_shuffled, config)
-        PlotUtils.plot_roc_curve(preds, test_data_labels_shuffled, config)
+            config['th_type'] = 'min'
+            PlotUtils.plot_train_and_test_losses_over_features(mse, mean_mse_normal_test, mean_mse_anomaly_test, threshold_vector_max_mse_std, config)
+            preds_th_2 = _classify_threshold_vector(test_loss, threshold_vector_max_mse_std)
+            f1_5_min = _print_stats(preds_th_2, test_data_labels_shuffled, config)
+            PlotUtils.plot_roc_curve(preds_th_2, test_data_labels_shuffled, config)
+            PlotUtils.plot_confusion_matrix(preds_th_2, test_data_labels_shuffled, config)
 
-        return f1_5
+            return f1_5
 
 
 def _classify(loss, threshold):
@@ -133,14 +147,12 @@ def _classify(loss, threshold):
     return tf.math.greater(mean_mse_test, threshold)
 
 
-def _predict_threshold_vector(model, data, threshold):
-    reconstructions = model.predict(data)
-    loss = tf.keras.losses.MeanSquaredError().call(data, reconstructions)
+def _classify_threshold_vector(loss, threshold):
     mse_test = loss.numpy()
     # mse_test: (ns, 86)
     # thr: (86,)
     # out: (ns,)
-    return tf.math.reduce_all(tf.math.greater(mse_test, threshold), axis=1)
+    return tf.math.reduce_any(tf.math.greater(mse_test, threshold), axis=1)
 
 
 def _print_stats(predictions, labels, config):
